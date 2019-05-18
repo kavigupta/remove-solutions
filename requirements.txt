@@ -1,0 +1,2 @@
+pdf2image==1.5.4
+Pillow==6.0.0
