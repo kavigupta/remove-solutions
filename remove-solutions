@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+
+
+from os import listdir
+from os.path import join
+from subprocess import check_call
+import argparse
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from scipy.misc import imsave
+
+def remove_solutions(args, process):
+    TEMPORARY_SOLUTIONS_FOLDER = "temporary_solutions"
+    TEMPORARY_UNANSWERED_SOLUTIONS_FOLDER = "temporary_solutions_unanswered"
+
+    check_call(["mkdir", TEMPORARY_SOLUTIONS_FOLDER])
+    check_call(["mkdir", TEMPORARY_UNANSWERED_SOLUTIONS_FOLDER])
+
+    check_call(["pdftoppm", "-png", args.input_filename, join(TEMPORARY_SOLUTIONS_FOLDER, "sol")])
+
+    for f in listdir("temporary_solutions"):
+        data = plt.imread(join(TEMPORARY_SOLUTIONS_FOLDER, f))
+        data = process(data)
+        imsave(join(TEMPORARY_UNANSWERED_SOLUTIONS_FOLDER, f), data)
+
+    check_call(["rm", "-r", TEMPORARY_SOLUTIONS_FOLDER])
+
+    unanswered_solns = [
+        join(TEMPORARY_UNANSWERED_SOLUTIONS_FOLDER, x) for x in sorted(listdir(TEMPORARY_UNANSWERED_SOLUTIONS_FOLDER))
+    ]
+
+    check_call(["convert", *unanswered_solns, args.output_filename])
+
+    check_call(["rm", "-r", TEMPORARY_UNANSWERED_SOLUTIONS_FOLDER])
+
+def remove_colorful(data):
+    mask = mpl.colors.rgb_to_hsv(data)[:,:,1:2] < 0.01
+    return data * mask + (1 - mask)
+
+def main():
+    parser = argparse.ArgumentParser(description='remove solutions from an exam')
+    parser.add_argument('input_filename', type=str, help='the file with solutions')
+    parser.add_argument('output_filename', type=str, help='the location to put the file without solutions')
+    return remove_solutions(parser.parse_args(), remove_colorful)
+
+if __name__ == '__main__':
+    main()
