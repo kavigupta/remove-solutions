@@ -1,42 +1,25 @@
 #!/usr/bin/env python3
 
 
-from os import listdir
-from os.path import join
-from subprocess import check_call
 import argparse
+from pdf2image import convert_from_path
 
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from scipy.misc import imsave
+RES = 300
 
 def remove_solutions(args, process):
-    TEMPORARY_SOLUTIONS_FOLDER = "temporary_solutions"
-    TEMPORARY_UNANSWERED_SOLUTIONS_FOLDER = "temporary_solutions_unanswered"
+    pages = [process(page) for page in convert_from_path(args.input_filename, RES)]
+    first, *rest = pages
+    first.save(args.output_filename, "PDF", resolution=RES, save_all=True, append_images=rest)
 
-    check_call(["mkdir", TEMPORARY_SOLUTIONS_FOLDER])
-    check_call(["mkdir", TEMPORARY_UNANSWERED_SOLUTIONS_FOLDER])
-
-    check_call(["pdftoppm", "-png", args.input_filename, join(TEMPORARY_SOLUTIONS_FOLDER, "sol")])
-
-    for f in listdir("temporary_solutions"):
-        data = plt.imread(join(TEMPORARY_SOLUTIONS_FOLDER, f))
-        data = process(data)
-        imsave(join(TEMPORARY_UNANSWERED_SOLUTIONS_FOLDER, f), data)
-
-    check_call(["rm", "-r", TEMPORARY_SOLUTIONS_FOLDER])
-
-    unanswered_solns = [
-        join(TEMPORARY_UNANSWERED_SOLUTIONS_FOLDER, x) for x in sorted(listdir(TEMPORARY_UNANSWERED_SOLUTIONS_FOLDER))
-    ]
-
-    check_call(["convert", *unanswered_solns, args.output_filename])
-
-    check_call(["rm", "-r", TEMPORARY_UNANSWERED_SOLUTIONS_FOLDER])
-
-def remove_colorful(data):
-    mask = mpl.colors.rgb_to_hsv(data)[:,:,1:2] < 0.01
-    return data * mask + (1 - mask)
+def remove_colorful(page):
+    page = page.copy()
+    sat = page.convert('HSV').split()[1].load()
+    page_mod = page.load()
+    for i in range(page.size[0]): # for every pixel:
+        for j in range(page.size[1]):
+            if sat[i, j] > 10:
+                page_mod[i,j] = (255, 255, 255)
+    return page
 
 def main():
     parser = argparse.ArgumentParser(description='remove solutions from an exam')
