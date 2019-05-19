@@ -3,11 +3,12 @@
 
 import argparse
 from pdf2image import convert_from_path
+from tqdm import tqdm
 
 RES = 300
 
 def remove_solutions(args, process):
-    pages = [process(page) for page in convert_from_path(args.input_filename, RES)]
+    pages = [process(page) for page in tqdm(convert_from_path(args.input_filename, RES))]
     first, *rest = pages
     first.save(args.output_filename, "PDF", resolution=RES, save_all=True, append_images=rest)
 
